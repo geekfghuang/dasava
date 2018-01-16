@@ -49,26 +49,49 @@ func logCollector(w http.ResponseWriter, r *http.Request) {
 	client := hbase.NewTHBaseServiceClient(thrift.NewTStandardClient(thrift.NewTBinaryProtocolTransport(transport),
 		thrift.NewTBinaryProtocolTransport(transport)))
 
-	tResult, err := client.Get(nil, []byte(Table), &hbase.TGet{Row:[]byte("0003")})
-	if err != nil {
-		fmt.Printf("error Get :%v\n", err)
+	//tResult, err := client.Get(nil, []byte(Table), &hbase.TGet{Row:[]byte("0003"), FilterString:[]byte("ValueFilter(=,'substring:geek')")})
+	//if err != nil {
+	//	fmt.Printf("error Get :%v\n", err)
+	//	os.Exit(1)
+	//}
+	//tColumnValues := tResult.GetColumnValues()
+	//for _, tColumnValue := range tColumnValues {
+	//	fmt.Println(string(tColumnValue.Family))
+	//	fmt.Println(string(tColumnValue.Qualifier))
+	//	fmt.Println(string(tColumnValue.Value))
+	//	fmt.Println(time.Unix(*tColumnValue.Timestamp, 0).Format(TimeSeq))
+	//}
+
+	tScan := hbase.NewTScan()
+	tScan.FilterString = []byte("ValueFilter(=,'binary:高级软件开发工程师')")
+ 	scannerID, err := client.OpenScanner(nil, []byte(Table), tScan)
+ 	if err != nil {
+ 		fmt.Printf("error openScanner: %v\n", err)
+ 		os.Exit(1)
 	}
-	tColumnValues := tResult.GetColumnValues()
-	for _, tColumnValue := range tColumnValues {
-		fmt.Println(string(tColumnValue.Family))
-		fmt.Println(string(tColumnValue.Qualifier))
-		fmt.Println(string(tColumnValue.Value))
-		fmt.Println(time.Unix(*tColumnValue.Timestamp, 0).Format(TimeSeq))
+	tResultSlice, err := client.GetScannerRows(nil, scannerID, 100)
+	if err != nil {
+		fmt.Printf("error getScannerRows: %v\n", err)
+	}
+	for _, v := range tResultSlice {
+		tColumnValues := v.GetColumnValues()
+		for _, tColumnValue := range tColumnValues {
+			fmt.Println(string(tColumnValue.Family))
+			fmt.Println(string(tColumnValue.Qualifier))
+			fmt.Println(string(tColumnValue.Value))
+			fmt.Println(time.Unix(*tColumnValue.Timestamp, 0).Format(TimeSeq))
+		}
 	}
 
-	putTColumnValues := make([]*hbase.TColumnValue, 0, 10)
-	putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("msg"), Qualifier:[]byte("username"), Value:[]byte("geekfghuang")})
-	putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("msg"), Qualifier:[]byte("title"), Value:[]byte("高级软件开发工程师")})
-	tPut := &hbase.TPut{Row:[]byte("0003"), ColumnValues:putTColumnValues}
-	err = client.Put(nil, []byte(Table), tPut)
-	if err != nil {
-		fmt.Printf("error Put :%v\n", err)
-	}
+	//putTColumnValues := make([]*hbase.TColumnValue, 0, 10)
+	//putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("msg"), Qualifier:[]byte("username"), Value:[]byte("geekfghuang")})
+	//putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("msg"), Qualifier:[]byte("title"), Value:[]byte("高级软件开发工程师")})
+	//tPut := &hbase.TPut{Row:[]byte("0003"), ColumnValues:putTColumnValues}
+	//err = client.Put(nil, []byte(Table), tPut)
+	//if err != nil {
+	//	fmt.Printf("error Put :%v\n", err)
+	//	os.Exit(1)
+	//}
 }
 
 func main() {
