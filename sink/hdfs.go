@@ -63,7 +63,7 @@ func nextId() (uid string) {
 	return strconv.FormatInt(snowflakeBody.Id, 10)
 }
 
-func Put(m map[string][]string) {
+func Put(m map[string][]string) error {
 	putTColumnValues := make([]*hbase.TColumnValue, 0, 10)
 	for k, v := range m {
 		if k == "message" {
@@ -76,6 +76,6 @@ func Put(m map[string][]string) {
 	err := HBaseClient.Put(nil, []byte(HBaseTable), tPut)
 	if err != nil {
 		fmt.Printf("error hbase put :%v\n", err)
-		os.Exit(1)
 	}
+	return err
 }

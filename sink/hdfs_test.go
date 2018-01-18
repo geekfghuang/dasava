@@ -24,7 +24,7 @@ func Test_Get(t *testing.T) {
 
 func Test_Scan(t *testing.T) {
 	tScan := hbase.NewTScan()
-	tScan.FilterString = []byte("ValueFilter(=,'binary:黄复贵')")
+	tScan.FilterString = []byte("ValueFilter(=,'substring:分布式')")
 	scannerID, err := HBaseClient.OpenScanner(nil, []byte(HBaseTable), tScan)
 	if err != nil {
 		fmt.Printf("error openScanner: %v\n", err)
@@ -41,7 +41,7 @@ func Test_Scan(t *testing.T) {
 			fmt.Println(string(tColumnValue.Family))
 			fmt.Println(string(tColumnValue.Qualifier))
 			fmt.Println(string(tColumnValue.Value))
-			fmt.Println(time.Unix(*tColumnValue.Timestamp, 0).Format(TimeSeq))
+			fmt.Println(time.Unix(*tColumnValue.Timestamp / 1000, 0).Format(TimeSeq))
 		}
 	}
 }
