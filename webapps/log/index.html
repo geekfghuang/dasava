@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>dasava log</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <a class="navbar-brand" href="#">dasava</a>
+            </div>
+            <div>
+                <ul class="nav navbar-nav">
+                    <li class="active"><a href="#">查询</a></li>
+                    <li><a href="#">部署Spark作业</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#myModal" style="margin-top: 80px;margin-left: 30px">
+        查询条件
+    </button>
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal"
+                            aria-hidden="true">×
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel">
+                        输入查询条件
+                    </h4>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group" style="width: 60%; margin-left: 15px;">
+                        <span class="input-group-btn">
+                        <button class="btn btn-default" type="button">应用程序</button>
+                        </span>
+                        <input type="text" class="form-control" placeholder="ip:port" id="client">
+                    </div>
+                    <div class="row" style="margin-top: 15px;margin-left: 0px;">
+                        <div class="col-lg-6">
+                            <div class="input-group">
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default" type="button">起始时间</button>
+                                </span>
+                                <input type="text" class="form-control" placeholder="yyyy-MM-dd HH:mm:ss" id="startTime">
+                            </div>
+                        </div>
+                        <div class="col-lg-6" style="margin-left: -20px;">
+                            <div class="input-group">
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default" type="button">截止时间</button>
+                                </span>
+                                <input type="text" class="form-control" placeholder="yyyy-MM-dd HH:mm:ss" id="endTime">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top: 15px;margin-left: 0px;">
+                        <div class="col-lg-6">
+                            <div class="input-group">
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default" type="button">键</button>
+                                </span>
+                                <input type="text" class="form-control" placeholder="例：level" id="tag">
+                            </div>
+                        </div>
+                        <div class="col-lg-6" style="margin-left: -20px;">
+                            <div class="input-group">
+                                <span class="input-group-btn">
+                                    <button class="btn btn-default" type="button">值</button>
+                                </span>
+                                <input type="text" class="form-control" placeholder="例：info" id="tagValue">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default"
+                            data-dismiss="modal">关闭
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="search()">
+                        点击查询
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel panel-default" style="margin-top: 10px; width: 96%; margin-left: 2%;">
+        <!-- Default panel contents -->
+        <div class="panel-heading">log日志</div>
+        <div class="panel-body">
+            <p>...</p>
+        </div>
+
+        <!-- Table -->
+        <table class="table">
+            ...
+        </table>
+    </div>
+</body>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap-theme.min.css"></script>
+<script src="https://cdn.bootcss.com/jquery/2.1.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script type="text/javascript">
+var search = function() {
+    var client = $("#client").val();
+    var startTime = $("#startTime").val();
+    var endTime = $("#endTime").val();
+    var tag = $("#tag").val();
+    var tagValue = $("#tagValue").val();
+    $.ajax({
+        url:"search",
+        type:"POST",
+        data:{client:client, startTime:startTime, endTime:endTime, tag:tag, tagValue:tagValue},
+        success:function(result){
+            alert(result["Client"]);
+        },
+        error:function(){
+            alert("Server internal error");
+        }
+    });
+};
+</script>
+</html>

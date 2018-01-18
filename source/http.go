@@ -9,8 +9,11 @@ import (
 )
 
 const (
-	HttpUrl = "/log"
+	LogUrl = "/log"
+	SearchUrl = "/search"
 	HttpAddr = ":12001"
+
+	VisualUrl = "/visual"
 )
 
 type LogResp struct {
@@ -19,7 +22,7 @@ type LogResp struct {
 }
 
 /*
- * ServeHTTP
+ * LogServe
  *
  * 1. （日志）数据模板，带固定message tag、其他tag多变的KV对：
  * [2018-01-14 20:20:35] [商城搜索系统] [INFO] [geekfghuang输入go并发编程实战]
@@ -28,7 +31,7 @@ type LogResp struct {
  * 2. 数据经过thrift服务落入hbase
  * https://github.com/apache/thrift
  *************************************************************************/
-func ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func LogServe(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	urlValue, flag := r.Form, 0
 	for k, _ := range urlValue {
@@ -41,6 +44,7 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		ReturnJsonObj(&LogResp{Code:-1, Msg:"日志格式错误"}, w)
 		return
 	}
+	urlValue["client"] = []string{r.RemoteAddr}
 	err := sink.Put(urlValue)
 	if err != nil {
 		ReturnJsonObj(&LogResp{Code:-1, Msg:err.Error()}, w)
@@ -49,7 +53,33 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ReturnJsonObj(&LogResp{Code:200, Msg:"log成功"}, w)
 }
 
-func ReturnJsonObj(resp *LogResp, w http.ResponseWriter) {
+func SearchServe(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	urlValue := r.Form
+	for k, v := range urlValue {
+		fmt.Println("key:", k)
+		fmt.Println("value:", v)
+	}
+	searchParam := new(sink.SearchParam)
+	if len(urlValue["client"]) > 0 {
+		searchParam.Client = urlValue["client"][0]
+	}
+	if len(urlValue["startTime"]) > 0 {
+		searchParam.StartTime = urlValue["startTime"][0]
+	}
+	if len(urlValue["endTime"]) > 0 {
+		searchParam.EndTime = urlValue["endTime"][0]
+	}
+	if len(urlValue["tag"]) > 0 {
+		searchParam.Tag = urlValue["tag"][0]
+	}
+	if len(urlValue["tagValue"]) > 0 {
+		searchParam.TagValue = urlValue["tagValue"][0]
+	}
+ 	ReturnJsonObj(searchParam, w)
+}
+
+func ReturnJsonObj(resp interface{}, w http.ResponseWriter) {
 	bytes, err := json.Marshal(resp)
 	if err != nil {
 		fmt.Printf("error marshal logresp: %v\n", err)
@@ -60,8 +90,12 @@ func ReturnJsonObj(resp *LogResp, w http.ResponseWriter) {
 }
 
 func main() {
-	// 以http方式接入数据
-	http.HandleFunc(HttpUrl, ServeHTTP)
+	// 以http方式接入log数据
+	http.HandleFunc(LogUrl, LogServe)
+	// log数据搜索入口
+	http.HandleFunc(SearchUrl, SearchServe)
+	// 可视化界面
+	http.Handle(VisualUrl, http.StripPrefix(VisualUrl, http.FileServer(http.Dir("C:\\Users\\huangfugui\\GoglandProjects\\src\\github.com\\geekfghuang\\dasava\\webapps\\log\\"))))
 	err := http.ListenAndServe(HttpAddr, nil)
 	if err != nil {
 		fmt.Printf("error ListenAndServe: %v\n", err)

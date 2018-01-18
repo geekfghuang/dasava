@@ -29,6 +29,14 @@ type SnowflakeBody struct {
 	Id int64
 }
 
+type SearchParam struct {
+	Client string
+	StartTime string
+	EndTime string
+	Tag string
+	TagValue string
+}
+
 func init() {
 	transport, err := thrift.NewTSocket(net.JoinHostPort(HBaseHost, HBasePort))
 	if err != nil {
@@ -78,4 +86,8 @@ func Put(m map[string][]string) error {
 		fmt.Printf("error hbase put :%v\n", err)
 	}
 	return err
+}
+
+func Search(searchParam SearchParam) {
+
 }
