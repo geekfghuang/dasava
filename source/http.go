@@ -6,6 +6,7 @@ import (
 	"github.com/geekfghuang/dasava/sink"
 	"encoding/json"
 	"os"
+	"strings"
 )
 
 const (
@@ -44,7 +45,7 @@ func LogServe(w http.ResponseWriter, r *http.Request) {
 		ReturnJsonObj(&LogResp{Code:-1, Msg:"日志格式错误"}, w)
 		return
 	}
-	urlValue["client"] = []string{r.RemoteAddr}
+	urlValue["clientIP"] = []string{r.RemoteAddr[:strings.LastIndex(r.RemoteAddr, ":")]}
 	err := sink.Put(urlValue)
 	if err != nil {
 		ReturnJsonObj(&LogResp{Code:-1, Msg:err.Error()}, w)

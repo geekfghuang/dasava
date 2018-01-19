@@ -24,7 +24,14 @@ func Test_Get(t *testing.T) {
 
 func Test_Scan(t *testing.T) {
 	tScan := hbase.NewTScan()
-	//tScan.FilterString = []byte("ValueFilter(=,'substring:分布式')")
+	//ColumnPrefixFilter('c2') AND
+	//tScan.FilterString = []byte("ValueFilter(=,'substring:hadoop')")
+	//tc := &hbase.TColumn{Family:[]byte("message"), Qualifier:[]byte("message")}
+	////tc2 := &hbase.TColumn{Family:[]byte("tag"), Qualifier:[]byte("")}
+	//slice := make([]*hbase.TColumn, 0, 0)
+	//slice = append(slice, tc)
+	//tScan.Columns = slice
+
 	scannerID, err := HBaseClient.OpenScanner(nil, []byte(HBaseTable), tScan)
 	if err != nil {
 		fmt.Printf("error openScanner: %v\n", err)

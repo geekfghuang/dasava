@@ -17,15 +17,25 @@ const (
 	HBaseHost = "140.143.146.101"
 	HBasePort = "9090"
 	HBaseTable = "dasava_log"
+	HBaseIndexTable = "dasava_log_index"
 	TimeSeq = "2006-01-02 15:04:05"
 
 	SnowflakeUrl = "http://101.200.45.225:12009/nextId"
 
 	Epoch         = 1516170660000
 	TimeStampShift = 22
+
+	IndexJobChSize = 100000
+	BuildIndexWorker = 10
 )
 
-var HBaseClient *hbase.THBaseServiceClient
+var (
+	// 关于共享对象方法的疑惑 TODO
+	HBaseClient *hbase.THBaseServiceClient
+	HBaseIndexClient *hbase.THBaseServiceClient
+
+	IndexJobCh chan *IndexJob
+)
 
 type SnowflakeBody struct {
 	Code int
@@ -41,18 +51,33 @@ type SearchParam struct {
 	TagValue string
 }
 
+type IndexJob struct {
+	RowKey string
+	M map[string][]string
+}
+
 func init() {
-	transport, err := thrift.NewTSocket(net.JoinHostPort(HBaseHost, HBasePort))
+	HBaseClient = MakeTHBaseServiceClient(HBaseHost, HBasePort)
+	HBaseIndexClient = MakeTHBaseServiceClient(HBaseHost, HBasePort)
+	IndexJobCh = make(chan *IndexJob, IndexJobChSize)
+	for i := 0; i < BuildIndexWorker; i++ {
+		go BuildIndex()
+	}
+}
+
+func MakeTHBaseServiceClient(host, port string) (client *hbase.THBaseServiceClient) {
+	transport, err := thrift.NewTSocket(net.JoinHostPort(host, port))
 	if err != nil {
-		fmt.Printf("error resolving address " + HBaseHost + ":" + HBasePort + " :%v\n", err)
+		fmt.Printf("error resolving address " + host + ":" + port + " :%v\n", err)
 		os.Exit(1)
 	}
 	if err = transport.Open(); err != nil {
-		fmt.Printf("error opening socket to " + HBaseHost + ":" + HBasePort + " :%v\n", err)
+		fmt.Printf("error opening socket to " + host + ":" + port + " :%v\n", err)
 		os.Exit(1)
 	}
-	HBaseClient = hbase.NewTHBaseServiceClient(thrift.NewTStandardClient(thrift.NewTBinaryProtocolTransport(transport),
+	client = hbase.NewTHBaseServiceClient(thrift.NewTStandardClient(thrift.NewTBinaryProtocolTransport(transport),
 		thrift.NewTBinaryProtocolTransport(transport)))
+	return
 }
 
 func nextId() (uid string) {
@@ -79,17 +104,44 @@ func Put(m map[string][]string) error {
 	putTColumnValues := make([]*hbase.TColumnValue, 0, 10)
 	for k, v := range m {
 		if k == "message" {
-			putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("message"), Qualifier:[]byte("message"), Value:[]byte(m["message"][0])})
+			putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("message"),
+				Qualifier:[]byte("message"), Value:[]byte(m["message"][0])})
 		} else {
-			putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("tag"), Qualifier:[]byte(k), Value:[]byte(v[0])})
+			putTColumnValues = append(putTColumnValues, &hbase.TColumnValue{Family:[]byte("tag"),
+				Qualifier:[]byte(k), Value:[]byte(v[0])})
 		}
 	}
-	tPut := &hbase.TPut{Row:[]byte(nextId()), ColumnValues:putTColumnValues}
+	rowKey := nextId()
+	tPut := &hbase.TPut{Row:[]byte(rowKey), ColumnValues:putTColumnValues}
 	err := HBaseClient.Put(nil, []byte(HBaseTable), tPut)
 	if err != nil {
 		fmt.Printf("error hbase put :%v\n", err)
 	}
+	IndexJobCh <- &IndexJob{RowKey:rowKey, M:m}
 	return err
+}
+
+// hbase二级索引
+func BuildIndex() {
+	for indexJob := range IndexJobCh {
+		var indexRowKey string
+		for k, v := range indexJob.M {
+			if k == "message" {
+				continue
+			}
+			indexRowKey += k + v[0]
+		}
+		indexRowKey += indexJob.RowKey
+		indexTColumnValues := make([]*hbase.TColumnValue, 0, 5)
+		indexTColumnValues = append(indexTColumnValues, &hbase.TColumnValue{Family: []byte("index"),
+			Qualifier: []byte("rowKey"), Value: []byte(indexJob.RowKey)})
+		indexTPut := &hbase.TPut{Row: []byte(indexRowKey),
+			ColumnValues: indexTColumnValues}
+		err := HBaseIndexClient.Put(nil, []byte(HBaseIndexTable), indexTPut)
+		if err != nil {
+			fmt.Printf("error hbase index put :%v\n", err)
+		}
+	}
 }
 
 func Search(searchParam *SearchParam) {
