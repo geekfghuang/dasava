@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"strconv"
+	"time"
 )
 
 const (
@@ -19,6 +20,9 @@ const (
 	TimeSeq = "2006-01-02 15:04:05"
 
 	SnowflakeUrl = "http://101.200.45.225:12009/nextId"
+
+	Epoch         = 1516170660000
+	TimeStampShift = 22
 )
 
 var HBaseClient *hbase.THBaseServiceClient
@@ -88,6 +92,44 @@ func Put(m map[string][]string) error {
 	return err
 }
 
-func Search(searchParam SearchParam) {
+func Search(searchParam *SearchParam) {
+	tScan := hbase.NewTScan()
 
+	// 起止时间查询：
+	// 将yyyy-MM-dd HH:mm:ss格式的数据变换成hbase rowkey范围，
+	// 由于put数据时rowkey来自其他网络节点上的snowflake服务，而
+	// hbase cell的时间为数据真正落地的时间，所以会有一些误差。
+	// 网络上的延迟、抖动都会影响到查询误差。
+	if searchParam.StartTime != "" {
+		startTime, _ := time.Parse(TimeSeq, searchParam.StartTime)
+		startRow := ((startTime.Unix() - 8 * 3600) * 1000 - Epoch) << TimeStampShift
+		tScan.StartRow = []byte(strconv.FormatInt(startRow, 10))
+	}
+	if searchParam.EndTime != "" {
+		endTime, _ := time.Parse(TimeSeq, searchParam.EndTime)
+		stopRow := ((endTime.Unix() - 8 * 3600) * 1000 - Epoch) << TimeStampShift
+		tScan.StopRow = []byte(strconv.FormatInt(stopRow, 10))
+	}
+	//tScan.FilterString = []byte("ValueFilter(=,'substring:分布式')")
+	scannerID, err := HBaseClient.OpenScanner(nil, []byte(HBaseTable), tScan)
+	if err != nil {
+		fmt.Printf("error openScanner: %v\n", err)
+		os.Exit(1)
+	}
+	tResultSlice, err := HBaseClient.GetScannerRows(nil, scannerID, 100)
+	if err != nil {
+		fmt.Printf("error getScannerRows: %v\n", err)
+		os.Exit(1)
+	}
+	for _, v := range tResultSlice {
+		tColumnValues := v.GetColumnValues()
+		fmt.Println("-----------------------------------------------------------------")
+		for _, tColumnValue := range tColumnValues {
+			fmt.Println(string(tColumnValue.Family))
+			fmt.Println(string(tColumnValue.Qualifier))
+			fmt.Println(string(tColumnValue.Value))
+			fmt.Println(time.Unix(*tColumnValue.Timestamp / 1000, 0).Format(TimeSeq))
+			fmt.Println()
+		}
+	}
 }

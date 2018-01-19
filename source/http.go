@@ -56,10 +56,6 @@ func LogServe(w http.ResponseWriter, r *http.Request) {
 func SearchServe(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	urlValue := r.Form
-	for k, v := range urlValue {
-		fmt.Println("key:", k)
-		fmt.Println("value:", v)
-	}
 	searchParam := new(sink.SearchParam)
 	if len(urlValue["client"]) > 0 {
 		searchParam.Client = urlValue["client"][0]
@@ -76,6 +72,7 @@ func SearchServe(w http.ResponseWriter, r *http.Request) {
 	if len(urlValue["tagValue"]) > 0 {
 		searchParam.TagValue = urlValue["tagValue"][0]
 	}
+	sink.Search(searchParam)
  	ReturnJsonObj(searchParam, w)
 }
 
