@@ -12,7 +12,7 @@ import (
 
 func Test_Get(t *testing.T) {
 	//tResult, err := HBaseClient.Get(nil, []byte(HBaseTable), &hbase.TGet{Row:[]byte("0003"), FilterString:[]byte("ValueFilter(=,'substring:geek')")})
-	tResult, _ := HBaseClient.Get(nil, []byte(HBaseTable), &hbase.TGet{Row:[]byte("344405177270272")})
+	tResult, _ := HBaseClient.Get(nil, []byte(HBaseTable), &hbase.TGet{Row:[]byte("1063036760621056")})
 	tColumnValues := tResult.GetColumnValues()
 	for _, tColumnValue := range tColumnValues {
 		fmt.Println(string(tColumnValue.Family))
@@ -31,7 +31,6 @@ func Test_Scan(t *testing.T) {
 	//slice := make([]*hbase.TColumn, 0, 0)
 	//slice = append(slice, tc)
 	//tScan.Columns = slice
-
 	scannerID, err := HBaseClient.OpenScanner(nil, []byte(HBaseTable), tScan)
 	if err != nil {
 		fmt.Printf("error openScanner: %v\n", err)

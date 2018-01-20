@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>dasava log</title>
+    <title>dasava</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -37,9 +37,9 @@
                 <div class="modal-body">
                     <div class="input-group" style="width: 60%; margin-left: 15px;">
                         <span class="input-group-btn">
-                        <button class="btn btn-default" type="button">应用程序</button>
+                        <button class="btn btn-default" type="button">机器ip</button>
                         </span>
-                        <input type="text" class="form-control" placeholder="ip:port" id="client">
+                        <input type="text" class="form-control" placeholder="ip地址" id="clientIP">
                     </div>
                     <div class="row" style="margin-top: 15px;margin-left: 0px;">
                         <div class="col-lg-6">
@@ -59,23 +59,11 @@
                             </div>
                         </div>
                     </div>
-                    <div class="row" style="margin-top: 15px;margin-left: 0px;">
-                        <div class="col-lg-6">
-                            <div class="input-group">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default" type="button">键</button>
-                                </span>
-                                <input type="text" class="form-control" placeholder="例：level" id="tag">
-                            </div>
-                        </div>
-                        <div class="col-lg-6" style="margin-left: -20px;">
-                            <div class="input-group">
-                                <span class="input-group-btn">
-                                    <button class="btn btn-default" type="button">值</button>
-                                </span>
-                                <input type="text" class="form-control" placeholder="例：info" id="tagValue">
-                            </div>
-                        </div>
+                    <div class="input-group" style="width: 94%; margin-left: 15px; margin-top: 15px;">
+                        <span class="input-group-btn">
+                        <button class="btn btn-default" type="button">标签参数</button>
+                        </span>
+                        <input type="text" class="form-control" placeholder='{"level":"info","businessID":"交通GPS监控数据",...} （注：值可为空）' id="tags">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -91,15 +79,21 @@
     </div>
 
     <div class="panel panel-default" style="margin-top: 10px; width: 96%; margin-left: 2%;">
-        <!-- Default panel contents -->
-        <div class="panel-heading">log日志</div>
+        <div class="panel-heading">dasava log</div>
         <div class="panel-body">
-            <p>...</p>
+            <p>1. 输入机器ip可查询特定机器log数据</p>
+            <p>2. 严格按格式"yyyy-MM-dd HH:mm:ss"输入时间节点</p>
+            <p>3. 以json格式搜索含有特定标签的log数据</p>
         </div>
-
-        <!-- Table -->
         <table class="table">
-            ...
+            <thead>
+                <tr class="row">
+                    <th class="col-md-2">时间</th>
+                    <th class="col-md-10">日志信息</th>
+                </tr>
+            </thead>
+            <tbody id="logBody">
+            </tbody>
         </table>
     </div>
 </body>
@@ -108,17 +102,24 @@
 <script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 <script type="text/javascript">
 var search = function() {
-    var client = $("#client").val();
+    var clientIP = $("#clientIP").val();
     var startTime = $("#startTime").val();
     var endTime = $("#endTime").val();
-    var tag = $("#tag").val();
-    var tagValue = $("#tagValue").val();
+    var tags = $("#tags").val();
     $.ajax({
         url:"search",
         type:"POST",
-        data:{client:client, startTime:startTime, endTime:endTime, tag:tag, tagValue:tagValue},
+        data:{clientIP:clientIP, startTime:startTime, endTime:endTime, tags:tags},
         success:function(result){
-            alert(result["Client"]);
+            $('#myModal').modal('hide');
+            $("#logBody").empty();
+            for(var i = 0; i < result["Body"].length; i++) {
+                var obj = result["Body"][i];
+                $("#logBody").append('<tr class="row" id='+obj["Row"]+'>\n' +
+                        '                <th class="col-md-2" style="font-weight: normal"><span>'+obj["Time"]+'</span></th>\n' +
+                        '                <th class="col-md-10" style="font-weight: normal" data-toggle="tooltip" data-placement="right" title='+obj["TagValuesString"]+'><span>'+obj["MessageString"]+'</span></th>\n' +
+                        '            </tr>');
+            }
         },
         error:function(){
             alert("Server internal error");
