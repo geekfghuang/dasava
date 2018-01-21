@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/geekfghuang/dasava/sink"
 	"encoding/json"
-	"os"
 	"strings"
 )
 
@@ -35,16 +34,16 @@ func LogServe(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if flag != 1 {
-		ReturnJsonObj(&Resp{Code:-1, Msg:"日志格式错误"}, w)
+		WriteJsonObj(&Resp{Code:-1, Msg:"日志格式错误"}, w)
 		return
 	}
 	urlValue["clientIP"] = []string{r.RemoteAddr[:strings.LastIndex(r.RemoteAddr, ":")]}
 	err := sink.Put(urlValue)
 	if err != nil {
-		ReturnJsonObj(&Resp{Code:-1, Msg:err.Error()}, w)
+		WriteJsonObj(&Resp{Code:-1, Msg:err.Error()}, w)
 		return
 	}
-	ReturnJsonObj(&Resp{Code:200, Msg:"log成功"}, w)
+	WriteJsonObj(&Resp{Code:200, Msg:"log成功"}, w)
 }
 
 func SearchServe(w http.ResponseWriter, r *http.Request) {
@@ -63,16 +62,16 @@ func SearchServe(w http.ResponseWriter, r *http.Request) {
 	if len(urlValue["tags"]) > 0 {
 		searchParam.Tags = urlValue["tags"][0]
 	}
-	tResultStrings := sink.Search(searchParam)
- 	ReturnJsonObj(&Resp{Code:200, Msg:"查询成功", Body:tResultStrings}, w)
+	tResultStrings, err := sink.Search(searchParam)
+	if err != nil {
+		WriteJsonObj(&Resp{Code:200, Msg:"查询失败", Body:err.Error()}, w)
+		return
+	}
+	WriteJsonObj(&Resp{Code:200, Msg:"查询成功", Body:tResultStrings}, w)
 }
 
-func ReturnJsonObj(resp interface{}, w http.ResponseWriter) {
-	bytes, err := json.Marshal(resp)
-	if err != nil {
-		fmt.Printf("error marshal resp: %v\n", err)
-		os.Exit(1)
-	}
+func WriteJsonObj(resp interface{}, w http.ResponseWriter) {
+	bytes, _ := json.Marshal(resp)
 	w.Header().Set("Content-Type","application/json")
 	w.Write(bytes)
 }

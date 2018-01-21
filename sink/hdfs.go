@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 	"strings"
+	"errors"
 )
 
 const (
@@ -28,6 +29,8 @@ const (
 
 	IndexJobChSize = 100000
 	BuildIndexWorkerNum = 10
+
+	LogNumThreshold = 1000
 )
 
 var (
@@ -153,7 +156,7 @@ func BuildIndexWorker() {
 	}
 }
 
-func Search(searchParam *SearchParam) []*TResultString {
+func Search(searchParam *SearchParam) ([]*TResultString, error) {
 	tScan := hbase.NewTScan()
 	var tResults []*hbase.TResult_
 	if searchParam.ClientIP == "" && searchParam.Tags == "" {
@@ -162,24 +165,28 @@ func Search(searchParam *SearchParam) []*TResultString {
 		// 网络节点上的snowflake服务，而HBase cell的时间为数据真正落地的时间，所以会有一些误差。
 		// 网络上的延迟、抖动都会影响到查询误差。
 		if searchParam.StartTime != "" {
-			startTime, _ := time.Parse(TimeSeq, searchParam.StartTime)
+			startTime, err := time.Parse(TimeSeq, searchParam.StartTime)
+			if err != nil {
+				return nil, errors.New("开始时间格式错误")
+			}
 			startRow := ((startTime.Unix() - 8 * 3600) * 1000 - Epoch) << TimeStampShift
 			tScan.StartRow = []byte(strconv.FormatInt(startRow, 10))
 		}
 		if searchParam.EndTime != "" {
-			endTime, _ := time.Parse(TimeSeq, searchParam.EndTime)
+			endTime, err := time.Parse(TimeSeq, searchParam.EndTime)
+			if err != nil {
+				return nil, errors.New("结束时间格式错误")
+			}
 			stopRow := ((endTime.Unix() - 8 * 3600 + 1) * 1000 - Epoch) << TimeStampShift
 			tScan.StopRow = []byte(strconv.FormatInt(stopRow, 10))
 		}
 		scannerID, err := HBaseClient.OpenScanner(nil, []byte(HBaseTable), tScan)
 		if err != nil {
-			fmt.Printf("error openScanner: %v\n", err)
-			os.Exit(1)
+			return nil, errors.New("open scanner error")
 		}
-		tResults, err = HBaseClient.GetScannerRows(nil, scannerID, 100)
+		tResults, err = HBaseClient.GetScannerRows(nil, scannerID, LogNumThreshold)
 		if err != nil {
-			fmt.Printf("error getScannerRows: %v\n", err)
-			os.Exit(1)
+			return nil, errors.New("get scanner rows error")
 		}
 	} else {
 		// HBase二级索引查询
@@ -196,6 +203,8 @@ func Search(searchParam *SearchParam) []*TResultString {
 				rowFilterTarget += kvSplit[0][1:]
 				if len(kvSplit) > 1 {
 					rowFilterTarget += kvSplit[1][:len(kvSplit[1])-1]
+				} else {
+					rowFilterTarget = rowFilterTarget[:len(rowFilterTarget)-1]
 				}
 				filterString += "RowFilter(=,'substring:" + rowFilterTarget + "') AND "
 			}
@@ -204,22 +213,26 @@ func Search(searchParam *SearchParam) []*TResultString {
 		tScan.FilterString = []byte(filterString)
 		scannerID, err := HBaseClient.OpenScanner(nil, []byte(HBaseIndexTable), tScan)
 		if err != nil {
-			fmt.Printf("error openScanner: %v\n", err)
-			os.Exit(1)
+			return nil, errors.New("open scanner error")
 		}
-		tResultIndexs, err := HBaseClient.GetScannerRows(nil, scannerID, 100)
+		tResultIndexs, err := HBaseClient.GetScannerRows(nil, scannerID, LogNumThreshold)
 		if err != nil {
-			fmt.Printf("error getScannerRows: %v\n", err)
-			os.Exit(1)
+			return nil, errors.New("get scanner rows error")
 		}
-		tGets := make([]*hbase.TGet, 0, 100)
+		tGets := make([]*hbase.TGet, 0, 10)
 		leftThreshold, rightThreshold := int64(-1), int64(-1)
 		if searchParam.StartTime != "" {
-			startTime, _ := time.Parse(TimeSeq, searchParam.StartTime)
+			startTime, err := time.Parse(TimeSeq, searchParam.StartTime)
+			if err != nil {
+				return nil, errors.New("开始时间格式错误")
+			}
 			leftThreshold= ((startTime.Unix() - 8 * 3600) * 1000 - Epoch) << TimeStampShift
 		}
 		if searchParam.EndTime != "" {
-			endTime, _ := time.Parse(TimeSeq, searchParam.EndTime)
+			endTime, err := time.Parse(TimeSeq, searchParam.EndTime)
+			if err != nil {
+				return nil, errors.New("结束时间格式错误")
+			}
 			rightThreshold = ((endTime.Unix() - 8 * 3600 + 1) * 1000 - Epoch) << TimeStampShift
 		}
 		for _, v := range tResultIndexs {
@@ -238,15 +251,14 @@ func Search(searchParam *SearchParam) []*TResultString {
 		}
 		tResults, err = HBaseClient.GetMultiple(nil, []byte(HBaseTable), tGets)
 		if err != nil {
-			fmt.Printf("error getMultiple: %v\n", err)
-			os.Exit(1)
+			return nil, errors.New("get multiple error")
 		}
 	}
-	return StrTResults(tResults)
+	return StrTResults(tResults), nil
 }
 
 func StrTResults(tResults []*hbase.TResult_) []*TResultString {
-	tResultStrings := make([]*TResultString, 0, 100)
+	tResultStrings := make([]*TResultString, 0, 10)
 	for _, v := range tResults {
 		tResultString := new(TResultString)
 		tResultString.Row = string(v.Row)
